@@ -1,13 +1,18 @@
 ﻿using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 
-public class MenuManager : MonoBehaviour, IJoviosPlayerListener, IJoviosControllerListener{
+public class MenuManager : MonoBehaviour, IJoviosPlayerListener{
 	
 	public static Jovios jovios;
-	
+	public static Dictionary<int, Player> players = new Dictionary<int, Player>();
+	public static int gameID;
+	public GameObject statusObject;
+
 	void Start(){
 		jovios = Jovios.Create();
 		jovios.AddPlayerListener(this);
+		GetGameID();
 	}
 	
 	void OnGUI(){
@@ -18,15 +23,19 @@ public class MenuManager : MonoBehaviour, IJoviosPlayerListener, IJoviosControll
 	}
 	
 	bool IJoviosPlayerListener.PlayerConnected(JoviosPlayer p){
-		Debug.Log (p.GetPlayerName());
 		JoviosControllerStyle controllerStyle = new JoviosControllerStyle();
-		controllerStyle.AddAbsoluteJoystick("left", "woot!", "testButton2");
-		controllerStyle.AddButton2("right", new string[] {"Press the button1!"}, new string[] {"testButton1"});
-		controllerStyle.AddArbitraryButton(new int[] {-2, 6, 4, 4}, "new button", "response");
-		//controllerStyle.SetTextInput("What is your quest?", "Submit");
-		//controllerStyle.SetAccelerometerStyle(JoviosControllerAccelerometerStyle.Full);
+		GameObject newStatusObject = (GameObject) GameObject.Instantiate(statusObject, Vector3.zero, Quaternion.identity);
+		if(players.ContainsKey(p.GetUserID().GetIDNumber())){
+			players[p.GetUserID().GetIDNumber()].statusObject = newStatusObject;
+			controllerStyle.SetSingleButtons("Review your cards", players[p.GetUserID().GetIDNumber()].playCards.ToArray(), "Discard");
+		}
+		else{
+			players.Add(p.GetUserID().GetIDNumber(), new Player(p.GetUserID().GetIDNumber(), p.GetPlayerName(), newStatusObject));
+			controllerStyle.SetBasicButtons("Loading Cards", new string[0]);
+			StartCoroutine(SetInitialCards(players[p.GetUserID().GetIDNumber()]));
+		}
+		statusObject.GetComponent<PlayerStatus>().Setup(players[p.GetUserID().GetIDNumber()]);
 		jovios.SetControls(p.GetUserID(), controllerStyle);
-		jovios.AddControllerListener(this);
 		return false;
 	}
 	bool IJoviosPlayerListener.PlayerUpdated(JoviosPlayer p){
@@ -38,9 +47,23 @@ public class MenuManager : MonoBehaviour, IJoviosPlayerListener, IJoviosControll
 		return false;
 	}
 	
-	bool IJoviosControllerListener.ButtonEventReceived(JoviosButtonEvent e){
-		Debug.Log (e.GetResponse() + e.GetAction());
-		//Debug.Log (e.GetControllerStyle().GetQuestionPrompt());
-		return false;
+	IEnumerator SetInitialCards(Player p){
+		JoviosControllerStyle controllerStyle = new JoviosControllerStyle();
+		WWWForm form = new WWWForm();
+		form.AddField("uid",p.uid);
+		form.AddField ("game",gameID);
+		form.AddField ("ip",Network.player.externalIP);
+		WWW post_req = new WWW("http://54.201.173.103/cards/get7cards.php",form);
+		yield return post_req;
+		p.SetCards(post_req.text.Split('~'));
+		jovios.SetControls(new JoviosUserID(p.uid), controllerStyle);
+	}
+
+	IEnumerator GetGameID(){
+		WWWForm form = new WWWForm();
+		form.AddField ("ip",Network.player.externalIP);
+		WWW post_req = new WWW("http://54.201.173.103/cards/getgameid.php",form);
+		yield return post_req;
+		int.TryParse(post_req.text, out gameID);
 	}
 }

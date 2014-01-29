@@ -35,7 +35,7 @@ public class JoviosUnityNetworking : MonoBehaviour {
 		return joviosGameObject.GetComponent<Jovios>();
 	}
 	
-    public void StartServer(int maxPlayers = 32, int portNumber = 25000){
+    public void StartServer(int maxPlayers = 32, int portNumber = 2501){
 		Application.runInBackground = true;
         Network.InitializeServer(32, 25002, !Network.HavePublicAddress());
 		if(Application.isWebPlayer){
