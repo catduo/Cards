@@ -12,28 +12,55 @@ public class MenuManager : MonoBehaviour, IJoviosPlayerListener{
 	void Start(){
 		jovios = Jovios.Create();
 		jovios.AddPlayerListener(this);
-		GetGameID();
 	}
-	
+
+	JoviosNetworking networking;
+	string kingdom = ""
+		, phylum = ""
+			, statClass = ""
+			, order = ""
+			, family = ""
+			, genus = ""
+			, species = "";
+	bool is_black;
 	void OnGUI(){
-		GUI.Box(new Rect(0,0,100,50), jovios.GetGameName());
+		GUI.Box(new Rect(0,0,100,50), jovios.gameName);
 		if(GUI.Button(new Rect(0,50,100,50), "Start Server")){
 			jovios.StartServer();
+			networking = GameObject.Find ("JoviosObject").GetComponent<JoviosNetworking>();
+		}
+		if(GUI.Button(new Rect(0,100,100,50), "find")){
+			networking.LoadGameStat("cards", 0, "GameName = 'Cards' AND Domain = 'Cards'");
+		}
+		is_black = GUI.Toggle (new Rect (100, 0, 100, 50), is_black, "black?");
+		if(is_black){
+			kingdom = "black";
+		}
+		else{
+			kingdom = "white";
+		}
+		GUI.Box(new Rect(100,50,100,25), "Category");
+		phylum = GUI.TextArea(new Rect(100,75,100,25), phylum);
+		
+		GUI.Box(new Rect(100,100,100,25), "Sub Category");
+		statClass = GUI.TextArea(new Rect(100,125,100,25), statClass);
+
+		GUI.Box(new Rect(100,150,100,25), "Age (int)");
+		order = GUI.TextArea(new Rect(100,175,100,25), order);
+		//family = GUI.TextArea(new Rect(100,200,100,50), family);
+		//genus = GUI.TextArea(new Rect(100,250,100,50), genus);
+		if(kingdom == "black"){
+			GUI.Box(new Rect(100,300,100,25), "#White Cards");
+			species = GUI.TextArea(new Rect(100,325,100,25), species);
+		}
+		if(GUI.Button(new Rect(100,350,100,50), "set")){
+			networking.SaveGameStat("Cards", 0, species, "Cards", kingdom, phylum, order, family, statClass, genus);
 		}
 	}
 	
 	bool IJoviosPlayerListener.PlayerConnected(JoviosPlayer p){
 		JoviosControllerStyle controllerStyle = new JoviosControllerStyle();
 		GameObject newStatusObject = (GameObject) GameObject.Instantiate(statusObject, Vector3.zero, Quaternion.identity);
-		if(players.ContainsKey(p.GetUserID().GetIDNumber())){
-			players[p.GetUserID().GetIDNumber()].statusObject = newStatusObject;
-			controllerStyle.SetSingleButtons("Review your cards", players[p.GetUserID().GetIDNumber()].playCards.ToArray(), "Discard");
-		}
-		else{
-			players.Add(p.GetUserID().GetIDNumber(), new Player(p.GetUserID().GetIDNumber(), p.GetPlayerName(), newStatusObject));
-			controllerStyle.SetBasicButtons("Loading Cards", new string[0]);
-			StartCoroutine(SetInitialCards(players[p.GetUserID().GetIDNumber()]));
-		}
 		statusObject.GetComponent<PlayerStatus>().Setup(players[p.GetUserID().GetIDNumber()]);
 		jovios.SetControls(p.GetUserID(), controllerStyle);
 		return false;
@@ -45,25 +72,5 @@ public class MenuManager : MonoBehaviour, IJoviosPlayerListener{
 	bool IJoviosPlayerListener.PlayerDisconnected(JoviosPlayer p){
 		Debug.Log (p.GetPlayerName());
 		return false;
-	}
-	
-	IEnumerator SetInitialCards(Player p){
-		JoviosControllerStyle controllerStyle = new JoviosControllerStyle();
-		WWWForm form = new WWWForm();
-		form.AddField("uid",p.uid);
-		form.AddField ("game",gameID);
-		form.AddField ("ip",Network.player.externalIP);
-		WWW post_req = new WWW("http://54.201.173.103/cards/get7cards.php",form);
-		yield return post_req;
-		p.SetCards(post_req.text.Split('~'));
-		jovios.SetControls(new JoviosUserID(p.uid), controllerStyle);
-	}
-
-	IEnumerator GetGameID(){
-		WWWForm form = new WWWForm();
-		form.AddField ("ip",Network.player.externalIP);
-		WWW post_req = new WWW("http://54.201.173.103/cards/getgameid.php",form);
-		yield return post_req;
-		int.TryParse(post_req.text, out gameID);
 	}
 }
